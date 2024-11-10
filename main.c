@@ -4,7 +4,6 @@
 
 #define ORDER 5 
 
-
 typedef struct {
     char placa[8];      
     char modelo[20];   
@@ -13,13 +12,12 @@ typedef struct {
     char saida[6];    
 } Registro;
 
-
 typedef struct BTreeNode {
-    int numKeys;                      
+    int numKeys;                       
     char placas[ORDER - 1][8];        
     long positions[ORDER - 1];        
     struct BTreeNode *children[ORDER];
-    int isLeaf;                      
+    int isLeaf;                       
 } BTreeNode;
 
 BTreeNode *createNode(int isLeaf) {
@@ -114,6 +112,49 @@ void inserirVeiculo(FILE *dataFile, BTreeNode **root, Registro veiculo) {
     insert(root, veiculo.placa, posicao);
 }
 
+BTreeNode* buscar(BTreeNode *node, char *placa) {
+    int i = 0;
+    while (i < node->numKeys && strcmp(placa, node->placas[i]) > 0) {
+        i++;
+    }
+    if (i < node->numKeys && strcmp(placa, node->placas[i]) == 0) {
+        return node;
+    }
+    if (node->isLeaf) {
+        return NULL;
+    }
+    return buscar(node->children[i], placa);
+}
+
+void carregarDadosNaArvore(FILE *dataFile, BTreeNode **root) {
+    fseek(dataFile, 0, SEEK_SET); 
+    char linha[100];
+    
+    while (fgets(linha, sizeof(linha), dataFile)) {
+        Registro veiculo;
+        
+        if (sscanf(linha, "%7[^|]|%19[^|]|%9[^|]|%5[^|]|%5[^\n]", 
+                   veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada, veiculo.saida) == 5) {
+            long posicao = ftell(dataFile) - strlen(linha); 
+            insert(root, veiculo.placa, posicao);
+        } else {
+            printf("Erro ao ler linha: %s\n", linha);
+        }
+    }
+}
+
+void exibirVeiculo(FILE *dataFile, BTreeNode *node, int index) {
+    fseek(dataFile, node->positions[index], SEEK_SET);
+    Registro veiculo;
+    fscanf(dataFile, "%7[^|]|%19[^|]|%9[^|]|%5[^|]|%5s", veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada, veiculo.saida);
+    
+  
+    printf("Modelo: %s\n", veiculo.modelo);
+    printf("Cor: %s\n", veiculo.cor);
+    printf("Entrada: %s\n", veiculo.entrada);
+    printf("Saída: %s\n", veiculo.saida);
+}
+
 int main() {
     FILE *dataFile = fopen("dados.txt", "a+");
     if (dataFile == NULL) {
@@ -122,28 +163,47 @@ int main() {
     }
 
     BTreeNode *root = createNode(1);
+    carregarDadosNaArvore(dataFile, &root);
 
     int opcao;
+    char placa[8];
     Registro veiculo;
     while (1) {
-        printf("1. Inserir Veículo\n2. Sair\n");
+        printf("1. Inserir Veículo\n2. Consultar Veículo\n3. Sair\n");
         printf("Escolha uma opção: ");
         scanf("%d", &opcao);
 
         switch (opcao) {
             case 1:
                 printf("Placa: ");
-                scanf("%s", veiculo.placa);
+                scanf("%7s", veiculo.placa);  // Limitar a 7 caracteres
                 printf("Modelo: ");
-                scanf("%s", veiculo.modelo);
+                scanf("%19s", veiculo.modelo);  // Limitar a 19 caracteres
                 printf("Cor: ");
-                scanf("%s", veiculo.cor);
+                scanf("%9s", veiculo.cor);  // Limitar a 9 caracteres
                 printf("Horário de entrada (HH:MM): ");
-                scanf("%s", veiculo.entrada);
+                scanf("%5s", veiculo.entrada);  // Limitar a 5 caracteres
                 strcpy(veiculo.saida, ""); 
                 inserirVeiculo(dataFile, &root, veiculo);
                 break;
             case 2:
+                printf("Digite a placa do veículo: ");
+                scanf("%7s", placa);  // Limitar a 7 caracteres
+                BTreeNode *result = buscar(root, placa);
+                if (result != NULL) {
+                    int index = 0;
+                    while (index < result->numKeys && strcmp(placa, result->placas[index]) != 0) {
+                        index++;
+                    }
+                    if (index < result->numKeys) {
+                        printf("Veículo encontrado!\n");
+                        exibirVeiculo(dataFile, result, index);
+                    }
+                } else {
+                    printf("Veículo não encontrado!\n");
+                }
+                break;
+            case 3:
                 fclose(dataFile);
                 exit(0);
         }
