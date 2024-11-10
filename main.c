@@ -2,18 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define ORDER 5 
+#define ORDER 5
 
 typedef struct {
     char placa[8];      
     char modelo[20];   
     char cor[10];     
     char entrada[6];  
-    char saida[6];    
 } Registro;
 
 typedef struct BTreeNode {
-    int numKeys;                       
+    int numKeys;                        
     char placas[ORDER - 1][8];        
     long positions[ORDER - 1];        
     struct BTreeNode *children[ORDER];
@@ -107,7 +106,7 @@ void insert(BTreeNode **root, char *placa, long pos) {
 void inserirVeiculo(FILE *dataFile, BTreeNode **root, Registro veiculo) {
     fseek(dataFile, 0, SEEK_END);
     long posicao = ftell(dataFile);
-    fprintf(dataFile, "%s|%s|%s|%s|%s\n", veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada, veiculo.saida);
+    fprintf(dataFile, "%s|%s|%s|%s\n", veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada);
     fflush(dataFile);
     insert(root, veiculo.placa, posicao);
 }
@@ -133,8 +132,8 @@ void carregarDadosNaArvore(FILE *dataFile, BTreeNode **root) {
     while (fgets(linha, sizeof(linha), dataFile)) {
         Registro veiculo;
         
-        if (sscanf(linha, "%7[^|]|%19[^|]|%9[^|]|%5[^|]|%5[^\n]", 
-                   veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada, veiculo.saida) == 5) {
+        if (sscanf(linha, "%7[^|]|%19[^|]|%9[^|]|%5[^|]", 
+                   veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada) == 4) {
             long posicao = ftell(dataFile) - strlen(linha); 
             insert(root, veiculo.placa, posicao);
         } else {
@@ -146,13 +145,11 @@ void carregarDadosNaArvore(FILE *dataFile, BTreeNode **root) {
 void exibirVeiculo(FILE *dataFile, BTreeNode *node, int index) {
     fseek(dataFile, node->positions[index], SEEK_SET);
     Registro veiculo;
-    fscanf(dataFile, "%7[^|]|%19[^|]|%9[^|]|%5[^|]|%5s", veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada, veiculo.saida);
+    fscanf(dataFile, "%7[^|]|%19[^|]|%9[^|]|%5[^|]", veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada);
     
-  
     printf("Modelo: %s\n", veiculo.modelo);
     printf("Cor: %s\n", veiculo.cor);
     printf("Entrada: %s\n", veiculo.entrada);
-    printf("Saída: %s\n", veiculo.saida);
 }
 
 int main() {
@@ -176,19 +173,18 @@ int main() {
         switch (opcao) {
             case 1:
                 printf("Placa: ");
-                scanf("%7s", veiculo.placa);  
+                scanf("%7s", veiculo.placa);  // Limitar a 7 caracteres
                 printf("Modelo: ");
-                scanf("%19s", veiculo.modelo);  
+                scanf("%19s", veiculo.modelo);  // Limitar a 19 caracteres
                 printf("Cor: ");
-                scanf("%9s", veiculo.cor);  
+                scanf("%9s", veiculo.cor);  // Limitar a 9 caracteres
                 printf("Horário de entrada (HH:MM): ");
-                scanf("%5s", veiculo.entrada); 
-                strcpy(veiculo.saida, ""); 
+                scanf("%5s", veiculo.entrada);  // Limitar a 5 caracteres
                 inserirVeiculo(dataFile, &root, veiculo);
                 break;
             case 2:
                 printf("Digite a placa do veículo: ");
-                scanf("%7s", placa);  
+                scanf("%7s", placa);  // Limitar a 7 caracteres
                 BTreeNode *result = buscar(root, placa);
                 if (result != NULL) {
                     int index = 0;
