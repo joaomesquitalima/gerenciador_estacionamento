@@ -176,19 +176,19 @@ int main() {
         switch (opcao) {
             case 1:
                 printf("Placa: ");
-                scanf("%7s", veiculo.placa);  // Limitar a 7 caracteres
+                scanf("%7s", veiculo.placa);  
                 printf("Modelo: ");
-                scanf("%19s", veiculo.modelo);  // Limitar a 19 caracteres
+                scanf("%19s", veiculo.modelo);  
                 printf("Cor: ");
-                scanf("%9s", veiculo.cor);  // Limitar a 9 caracteres
+                scanf("%9s", veiculo.cor);  
                 printf("Horário de entrada (HH:MM): ");
-                scanf("%5s", veiculo.entrada);  // Limitar a 5 caracteres
+                scanf("%5s", veiculo.entrada); 
                 strcpy(veiculo.saida, ""); 
                 inserirVeiculo(dataFile, &root, veiculo);
                 break;
             case 2:
                 printf("Digite a placa do veículo: ");
-                scanf("%7s", placa);  // Limitar a 7 caracteres
+                scanf("%7s", placa);  
                 BTreeNode *result = buscar(root, placa);
                 if (result != NULL) {
                     int index = 0;
