@@ -19,7 +19,6 @@ typedef struct BTreeNode {
     int isLeaf;                       
 } BTreeNode;
 
-// Cria um novo nó da árvore-B
 BTreeNode *createNode(int isLeaf) {
     BTreeNode *node = (BTreeNode *)malloc(sizeof(BTreeNode));
     node->isLeaf = isLeaf;
@@ -30,7 +29,7 @@ BTreeNode *createNode(int isLeaf) {
     return node;
 }
 
-// Função para dividir um nó quando ele estiver cheio
+
 void splitChild(BTreeNode *parent, int index, BTreeNode *child) {
     BTreeNode *newNode = createNode(child->isLeaf);
     newNode->numKeys = ORDER / 2 - 1;
@@ -240,6 +239,49 @@ void imprimirArquivo(FILE *dataFile) {
     }
 }
 
+void listDataInOrder(BTreeNode *node, FILE *dataFile) {
+    if (node == NULL) {
+        return;
+    }
+
+    // Percorrer os filhos à esquerda, em ordem
+    for (int i = 0; i < node->numKeys; i++) {
+        listDataInOrder(node->children[i], dataFile);
+        printf("Placa: %s - Posição: %ld\n", node->placas[i], node->positions[i]);
+
+        // Aqui, podemos acessar os dados no arquivo de dados usando a posição
+        fseek(dataFile, node->positions[i], SEEK_SET);
+        char linha[100];
+        fgets(linha, sizeof(linha), dataFile);
+        printf("Dados: %s", linha);  // Exibe os dados associados à placa
+    }
+    
+    // Verificar o último filho (caso não seja folha)
+    listDataInOrder(node->children[node->numKeys], dataFile);
+}
+
+void modifyData(BTreeNode *root, FILE *dataFile, char *placa, char *newModel, char *newColor, char *newTime) {
+    // Procurar pela chave (placa) na árvore-B
+    int i = 0;
+    while (i < root->numKeys && strcmp(placa, root->placas[i]) > 0) {
+        i++;
+    }
+
+    // Se a chave for encontrada, modificar o dado no arquivo
+    if (i < root->numKeys && strcmp(placa, root->placas[i]) == 0) {
+        long position = root->positions[i];
+        
+        // Modificar os dados no arquivo
+        fseek(dataFile, position, SEEK_SET);
+        fprintf(dataFile, "%s|%s|%s|%s\n", placa, newModel, newColor, newTime);
+        fflush(dataFile); // Garantir que as alterações sejam salvas no arquivo
+        printf("Dados modificados para a placa %s.\n", placa);
+    } else {
+        printf("Placa não encontrada.\n");
+    }
+}
+
+
 int main() {
     FILE *dataFile = fopen("dados.txt", "a+");
     if (dataFile == NULL) {
@@ -306,11 +348,11 @@ int main() {
                 displayBTree(loadedRoot);
 
                 fclose(dataFile);
+            case 5:
+             listDataInOrder(root,dataFile);
             case 3:
                 saveBTree(root, indexFile);
                 fclose(indexFile);
-
-            
                 fclose(dataFile);
                 return 0;
         }
