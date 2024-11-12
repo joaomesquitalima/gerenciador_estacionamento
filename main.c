@@ -12,13 +12,14 @@ typedef struct {
 } Registro;
 
 typedef struct BTreeNode {
-    int numKeys;                        
+    int numKeys;                       
     char placas[ORDER - 1][8];        
     long positions[ORDER - 1];        
     struct BTreeNode *children[ORDER];
     int isLeaf;                       
 } BTreeNode;
 
+// Cria um novo nó da árvore-B
 BTreeNode *createNode(int isLeaf) {
     BTreeNode *node = (BTreeNode *)malloc(sizeof(BTreeNode));
     node->isLeaf = isLeaf;
@@ -29,6 +30,7 @@ BTreeNode *createNode(int isLeaf) {
     return node;
 }
 
+// Função para dividir um nó quando ele estiver cheio
 void splitChild(BTreeNode *parent, int index, BTreeNode *child) {
     BTreeNode *newNode = createNode(child->isLeaf);
     newNode->numKeys = ORDER / 2 - 1;
@@ -60,6 +62,7 @@ void splitChild(BTreeNode *parent, int index, BTreeNode *child) {
     parent->numKeys++;
 }
 
+// Função para inserir uma chave no nó não cheio
 void insertNonFull(BTreeNode *node, char *placa, long pos) {
     int i = node->numKeys - 1;
 
@@ -87,6 +90,7 @@ void insertNonFull(BTreeNode *node, char *placa, long pos) {
     }
 }
 
+// Função para inserir um novo veículo na árvore-B
 void insert(BTreeNode **root, char *placa, long pos) {
     if ((*root)->numKeys == ORDER - 1) {
         BTreeNode *newRoot = createNode(0);
@@ -103,6 +107,63 @@ void insert(BTreeNode **root, char *placa, long pos) {
     }
 }
 
+// Função para salvar a árvore-B em um arquivo binário
+void saveBTree(BTreeNode *root, FILE *file) {
+    if (root == NULL) {
+        return;
+    }
+
+    fwrite(&root->numKeys, sizeof(int), 1, file);
+    for (int i = 0; i < root->numKeys; i++) {
+        fwrite(root->placas[i], sizeof(char), 8, file);
+        fwrite(&root->positions[i], sizeof(long), 1, file);
+    }
+
+    if (!root->isLeaf) {
+        for (int i = 0; i <= root->numKeys; i++) {
+            saveBTree(root->children[i], file);
+        }
+    }
+}
+
+// Função para carregar a árvore-B a partir de um arquivo binário
+BTreeNode *loadBTree(FILE *file) {
+    BTreeNode *root = createNode(1);
+    if (root == NULL) {
+        return NULL;
+    }
+
+    fread(&root->numKeys, sizeof(int), 1, file);
+    for (int i = 0; i < root->numKeys; i++) {
+        fread(root->placas[i], sizeof(char), 8, file);
+        fread(&root->positions[i], sizeof(long), 1, file);
+    }
+
+    for (int i = 0; i <= root->numKeys; i++) {
+        if (ftell(file) < ftell(file)) {
+            root->children[i] = loadBTree(file);
+        }
+    }
+    return root;
+}
+
+
+void displayBTree(BTreeNode *node) {
+    if (node == NULL) {
+        return;
+    }
+
+    for (int i = 0; i < node->numKeys; i++) {
+        printf("%s ", node->placas[i]);
+    }
+    printf("\n");
+
+    if (!node->isLeaf) {
+        for (int i = 0; i <= node->numKeys; i++) {
+            displayBTree(node->children[i]);
+        }
+    }
+}
 void inserirVeiculo(FILE *dataFile, BTreeNode **root, Registro veiculo) {
     fseek(dataFile, 0, SEEK_END);
     long posicao = ftell(dataFile);
@@ -130,26 +191,53 @@ void carregarDadosNaArvore(FILE *dataFile, BTreeNode **root) {
     char linha[100];
     
     while (fgets(linha, sizeof(linha), dataFile)) {
+        // Limpeza da linha antes de usar
+        linha[strcspn(linha, "\n")] = '\0';  // Remove o '\n' se houver
+
         Registro veiculo;
         
-        if (sscanf(linha, "%7[^|]|%19[^|]|%9[^|]|%5[^|]", 
-                   veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada) == 4) {
+        // Verifique se a linha tem o formato esperado (4 campos)
+        int numCampos = sscanf(linha, "%7[^|]|%19[^|]|%9[^|]|%5[^\n]", 
+                                veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada);
+        
+        if (numCampos == 4) {
             long posicao = ftell(dataFile) - strlen(linha); 
             insert(root, veiculo.placa, posicao);
         } else {
-            printf("Erro ao ler linha: %s\n", linha);
+            printf("Erro ao ler linha (esperado 4 campos): %s\n", linha);
         }
     }
 }
 
 void exibirVeiculo(FILE *dataFile, BTreeNode *node, int index) {
+    // Verificar se a posição no arquivo é válida
+    if (node->positions[index] < 0) {
+        printf("Posição inválida no arquivo.\n");
+        return;
+    }
+
     fseek(dataFile, node->positions[index], SEEK_SET);
-    Registro veiculo;
-    fscanf(dataFile, "%7[^|]|%19[^|]|%9[^|]|%5[^|]", veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada);
     
-    printf("Modelo: %s\n", veiculo.modelo);
-    printf("Cor: %s\n", veiculo.cor);
-    printf("Entrada: %s\n", veiculo.entrada);
+    Registro veiculo;
+    
+    // Verificando se a leitura do veículo foi bem-sucedida
+    if (fscanf(dataFile, "%7[^|]|%19[^|]|%9[^|]|%5[^\n]", 
+               veiculo.placa, veiculo.modelo, veiculo.cor, veiculo.entrada) == 4) {
+        printf("Placa: %s\n", veiculo.placa);
+        printf("Modelo: %s\n", veiculo.modelo);
+        printf("Cor: %s\n", veiculo.cor);
+        printf("Entrada: %s\n", veiculo.entrada);
+    } else {
+        printf("Erro ao ler o registro do veículo. Verifique a formatação dos dados.\n");
+    }
+}
+
+void imprimirArquivo(FILE *dataFile) {
+    char linha[100];
+    fseek(dataFile, 0, SEEK_SET);
+    while (fgets(linha, sizeof(linha), dataFile)) {
+        printf("%s", linha);
+    }
 }
 
 int main() {
@@ -161,7 +249,14 @@ int main() {
 
     BTreeNode *root = createNode(1);
     carregarDadosNaArvore(dataFile, &root);
+    imprimirArquivo(dataFile);  
 
+    FILE *indexFile = fopen("indice_btree.bin", "wb");
+    if (indexFile == NULL) {
+        perror("Erro ao abrir o arquivo de índice");
+        return 1;
+    }
+    
     int opcao;
     char placa[8];
     Registro veiculo;
@@ -173,35 +268,54 @@ int main() {
         switch (opcao) {
             case 1:
                 printf("Placa: ");
-                scanf("%7s", veiculo.placa);  // Limitar a 7 caracteres
+                scanf("%7s", veiculo.placa);  
                 printf("Modelo: ");
-                scanf("%19s", veiculo.modelo);  // Limitar a 19 caracteres
+                scanf("%19s", veiculo.modelo); 
                 printf("Cor: ");
-                scanf("%9s", veiculo.cor);  // Limitar a 9 caracteres
+                scanf("%9s", veiculo.cor); 
                 printf("Horário de entrada (HH:MM): ");
-                scanf("%5s", veiculo.entrada);  // Limitar a 5 caracteres
+                scanf("%5s", veiculo.entrada); 
                 inserirVeiculo(dataFile, &root, veiculo);
                 break;
             case 2:
-                printf("Digite a placa do veículo: ");
-                scanf("%7s", placa);  // Limitar a 7 caracteres
+                printf("Digite a placa do veículo a ser consultado: ");
+                scanf("%7s", placa);
                 BTreeNode *result = buscar(root, placa);
                 if (result != NULL) {
-                    int index = 0;
-                    while (index < result->numKeys && strcmp(placa, result->placas[index]) != 0) {
+                    int index = 0;  
+                    while (index < result->numKeys && strcmp(placa, result->placas[index]) > 0) {
                         index++;
                     }
-                    if (index < result->numKeys) {
-                        printf("Veículo encontrado!\n");
-                        exibirVeiculo(dataFile, result, index);
-                    }
+                    exibirVeiculo(dataFile, result, index);
                 } else {
                     printf("Veículo não encontrado!\n");
                 }
                 break;
-            case 3:
+            case 4:
+                 // Carregar a árvore-B a partir do arquivo binário
+                indexFile = fopen("indice_btree.bin", "rb");
+                if (indexFile == NULL) {
+                    perror("Erro ao abrir o arquivo de índice");
+                    return 1;
+                }
+                BTreeNode *loadedRoot = loadBTree(indexFile);
+                fclose(indexFile);
+
+                // Exibir a árvore carregada
+                printf("Árvore-B carregada:\n");
+                displayBTree(loadedRoot);
+
                 fclose(dataFile);
-                exit(0);
+            case 3:
+                saveBTree(root, indexFile);
+                fclose(indexFile);
+
+            
+                fclose(dataFile);
+                return 0;
         }
     }
+
+    fclose(dataFile);
+    return 0;
 }
